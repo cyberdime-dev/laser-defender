@@ -11,6 +11,7 @@ A simple arcade-style paddle shooter game built with Python and Pygame. Control 
   - **R Key**: Restart game when game over
   - **1-5 Keys**: Change laser visual style
   - **M Key**: Toggle background music on/off
+  - **H Key**: View high scores
 - **Scoring**: +1 point for each target destroyed
 - **Game Over**: Occurs when any target reaches the bottom of the screen
 
@@ -21,6 +22,7 @@ A simple arcade-style paddle shooter game built with Python and Pygame. Control 
 - 5 different laser visual styles
 - Falling target waves
 - Real-time score tracking
+- Persistent high score system
 - Sound effects (shooting, hits, game over)
 - Background music with toggle
 - Game over and restart functionality

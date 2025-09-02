@@ -82,3 +82,6 @@ assets/
 
 # Development files
 TODO.md
+
+# Game data files
+high_scores.json

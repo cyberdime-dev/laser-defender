@@ -2,6 +2,9 @@ import pygame
 import random
 import sys
 import math
+import json
+import os
+from datetime import datetime
 
 # Initialize
 pygame.init()
@@ -14,6 +17,7 @@ RED = (255, 50, 50)
 BLUE = (50, 150, 255)
 BLACK = (0, 0, 0)
 GREEN = (50, 255, 100)
+GOLD = (255, 215, 0)  # For high scores
 
 PADDLE_WIDTH, PADDLE_HEIGHT = 80, 20
 LASER_WIDTH, LASER_HEIGHT = 8, 25  # Made wider and taller for better visibility
@@ -21,6 +25,83 @@ TARGET_RADIUS = 20
 LASER_SPEED = 10
 TARGET_SPEED = 3
 SHOOT_DELAY = 300  # ms
+
+# High Score System
+HIGH_SCORE_FILE = "high_scores.json"
+MAX_HIGH_SCORES = 10
+
+class HighScoreManager:
+    def __init__(self):
+        self.high_scores = []
+        self.load_high_scores()
+    
+    def load_high_scores(self):
+        """Load high scores from file"""
+        try:
+            if os.path.exists(HIGH_SCORE_FILE):
+                with open(HIGH_SCORE_FILE, 'r') as f:
+                    self.high_scores = json.load(f)
+                # Sort by score (highest first)
+                self.high_scores.sort(key=lambda x: x['score'], reverse=True)
+                # Keep only top scores
+                self.high_scores = self.high_scores[:MAX_HIGH_SCORES]
+            else:
+                self.high_scores = []
+        except Exception as e:
+            print(f"Error loading high scores: {e}")
+            self.high_scores = []
+    
+    def save_high_scores(self):
+        """Save high scores to file"""
+        try:
+            with open(HIGH_SCORE_FILE, 'w') as f:
+                json.dump(self.high_scores, f, indent=2)
+        except Exception as e:
+            print(f"Error saving high scores: {e}")
+    
+    def add_score(self, score, player_name="Player"):
+        """Add a new score and return if it's a high score"""
+        if score <= 0:
+            return False
+        
+        # Check if this is a high score
+        is_high_score = len(self.high_scores) < MAX_HIGH_SCORES or score > self.high_scores[-1]['score']
+        
+        if is_high_score:
+            new_score = {
+                'score': score,
+                'player': player_name,
+                'date': datetime.now().strftime("%Y-%m-%d %H:%M"),
+                'laser_style': LASER_STYLE
+            }
+            
+            self.high_scores.append(new_score)
+            # Sort by score (highest first)
+            self.high_scores.sort(key=lambda x: x['score'], reverse=True)
+            # Keep only top scores
+            self.high_scores = self.high_scores[:MAX_HIGH_SCORES]
+            
+            # Save to file
+            self.save_high_scores()
+            
+            return True
+        
+        return False
+    
+    def get_top_score(self):
+        """Get the highest score"""
+        if self.high_scores:
+            return self.high_scores[0]['score']
+        return 0
+    
+    def is_new_record(self, score):
+        """Check if score would be a new record"""
+        if not self.high_scores:
+            return True
+        return score > self.high_scores[0]['score']
+
+# Initialize high score manager
+high_score_manager = HighScoreManager()
 
 # Setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -182,6 +263,7 @@ def play_background_music():
 
 # Game state
 background_music_started = False
+show_high_scores = False
 
 def spawn_target():
     x = random.randint(TARGET_RADIUS, WIDTH - TARGET_RADIUS)
@@ -237,12 +319,69 @@ def draw():
     sound_text = font.render(f"Sound: {sound_status} | Music: {music_status}", True, WHITE)
     screen.blit(sound_text, (10, 80))
 
+    # High score display
+    top_score = high_score_manager.get_top_score()
+    if top_score > 0:
+        high_score_text = font.render(f"High Score: {top_score}", True, GOLD)
+        screen.blit(high_score_text, (WIDTH - high_score_text.get_width() - 10, 10))
+
     if game_over:
         over_text = font.render("Game Over - Press R to Restart", True, WHITE)
         screen.blit(over_text, (WIDTH // 2 - over_text.get_width() // 2, HEIGHT // 2))
+        
+        # Show high score achievement if applicable
+        if high_score_manager.is_new_record(score):
+            record_text = font.render("NEW RECORD!", True, GOLD)
+            screen.blit(record_text, (WIDTH // 2 - record_text.get_width() // 2, HEIGHT // 2 + 50))
+        elif high_score_manager.add_score(score):
+            high_score_text = font.render("New High Score!", True, GOLD)
+            screen.blit(high_score_text, (WIDTH // 2 - high_score_text.get_width() // 2, HEIGHT // 2 + 50))
+    
+    # High score display screen
+    if show_high_scores:
+        draw_high_score_screen()
+
+def draw_high_score_screen():
+    """Draw the high score display screen"""
+    # Semi-transparent overlay
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(128)
+    overlay.fill(BLACK)
+    screen.blit(overlay, (0, 0))
+    
+    # Title
+    title = font.render("HIGH SCORES", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+    
+    # Instructions
+    instructions = font.render("Press H to close", True, WHITE)
+    screen.blit(instructions, (WIDTH // 2 - instructions.get_width() // 2, 150))
+    
+    # Display high scores
+    y_pos = 200
+    for i, score_data in enumerate(high_score_manager.high_scores):
+        if i >= 10:  # Limit to top 10
+            break
+            
+        # Rank and score
+        rank_text = f"{i+1:2d}. {score_data['score']:4d}"
+        rank_surface = font.render(rank_text, True, GOLD if i == 0 else WHITE)
+        screen.blit(rank_surface, (WIDTH // 2 - 150, y_pos))
+        
+        # Player name and date
+        info_text = f"{score_data['player']} - {score_data['date']}"
+        info_surface = font.render(info_text, True, WHITE)
+        screen.blit(info_surface, (WIDTH // 2 + 50, y_pos))
+        
+        y_pos += 30
+    
+    # Show message if no high scores
+    if not high_score_manager.high_scores:
+        no_scores = font.render("No high scores yet!", True, WHITE)
+        screen.blit(no_scores, (WIDTH // 2 - no_scores.get_width() // 2, 250))
 
 def main():
-    global score, lasers, targets, last_shot_time, game_over, LASER_STYLE, background_music_started
+    global score, lasers, targets, last_shot_time, game_over, LASER_STYLE, background_music_started, show_high_scores
 
     target_timer = 0
 
@@ -268,6 +407,9 @@ def main():
                     elif SOUND_ENABLED and background_music_started:
                         pygame.mixer.stop()
                         background_music_started = False
+                # High score display
+                elif event.key == pygame.K_h:  # H key to toggle high score display
+                    show_high_scores = not show_high_scores
 
         keys = pygame.key.get_pressed()
 
@@ -339,3 +481,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

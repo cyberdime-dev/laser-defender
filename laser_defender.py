@@ -68,7 +68,6 @@ def main():
 
     while True:
         dt = clock.tick(FPS)
-        screen.fill(BLACK)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

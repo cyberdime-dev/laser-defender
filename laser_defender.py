@@ -99,6 +99,30 @@ class HighScoreManager:
         if not self.high_scores:
             return True
         return score > self.high_scores[0]['score']
+    
+    def clear_all_scores(self):
+        """Clear all high scores"""
+        self.high_scores = []
+        self.save_high_scores()
+        print("All high scores cleared!")
+    
+    def get_statistics(self):
+        """Get high score statistics"""
+        if not self.high_scores:
+            return {
+                'total_games': 0,
+                'best_score': 0,
+                'average_score': 0,
+                'total_points': 0
+            }
+        
+        total_points = sum(score['score'] for score in self.high_scores)
+        return {
+            'total_games': len(self.high_scores),
+            'best_score': self.high_scores[0]['score'],
+            'average_score': total_points // len(self.high_scores),
+            'total_points': total_points
+        }
 
 # Initialize high score manager
 high_score_manager = HighScoreManager()
@@ -331,11 +355,30 @@ def draw():
         
         # Show high score achievement if applicable
         if high_score_manager.is_new_record(score):
-            record_text = font.render("NEW RECORD!", True, GOLD)
+            record_text = font.render("🏆 NEW RECORD! 🏆", True, GOLD)
             screen.blit(record_text, (WIDTH // 2 - record_text.get_width() // 2, HEIGHT // 2 + 50))
+            
+            # Show record details
+            details_text = font.render(f"You beat the previous record of {high_score_manager.get_top_score() - score} points!", True, WHITE)
+            screen.blit(details_text, (WIDTH // 2 - details_text.get_width() // 2, HEIGHT // 2 + 80))
+            
+            # Add to high scores
+            high_score_manager.add_score(score)
+            
         elif high_score_manager.add_score(score):
-            high_score_text = font.render("New High Score!", True, GOLD)
+            high_score_text = font.render("🎯 New High Score!", True, GOLD)
             screen.blit(high_score_text, (WIDTH // 2 - high_score_text.get_width() // 2, HEIGHT // 2 + 50))
+            
+            # Show ranking info
+            stats = high_score_manager.get_statistics()
+            rank_text = font.render(f"Ranked #{stats['total_games']} out of {stats['total_games']} scores", True, WHITE)
+            screen.blit(rank_text, (WIDTH // 2 - rank_text.get_width() // 2, HEIGHT // 2 + 80))
+        
+        # Show current session stats
+        stats = high_score_manager.get_statistics()
+        if stats['total_games'] > 0:
+            session_text = font.render(f"Session: {score} | Best: {stats['best_score']} | Games: {stats['total_games']}", True, GREEN)
+            screen.blit(session_text, (WIDTH // 2 - session_text.get_width() // 2, HEIGHT // 2 + 110))
     
     # High score display screen
     if show_high_scores:
@@ -349,36 +392,95 @@ def draw_high_score_screen():
     overlay.fill(BLACK)
     screen.blit(overlay, (0, 0))
     
-    # Title
-    title = font.render("HIGH SCORES", True, GOLD)
-    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 100))
+    # Title with decorative elements
+    title = font.render("🏆 HIGH SCORES 🏆", True, GOLD)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
+    
+    # Statistics header
+    stats_text = f"Total Games: {len(high_score_manager.high_scores)} | Best: {high_score_manager.get_top_score()}"
+    stats_surface = font.render(stats_text, True, WHITE)
+    screen.blit(stats_surface, (WIDTH // 2 - stats_surface.get_width() // 2, 120))
     
     # Instructions
-    instructions = font.render("Press H to close", True, WHITE)
+    instructions = font.render("Press H to close | ESC to clear scores", True, WHITE)
     screen.blit(instructions, (WIDTH // 2 - instructions.get_width() // 2, 150))
     
+    # Column headers
+    rank_header = font.render("RANK", True, GOLD)
+    score_header = font.render("SCORE", True, GOLD)
+    player_header = font.render("PLAYER", True, GOLD)
+    date_header = font.render("DATE", True, GOLD)
+    style_header = font.render("STYLE", True, GOLD)
+    
+    header_y = 180
+    screen.blit(rank_header, (WIDTH // 2 - 200, header_y))
+    screen.blit(score_header, (WIDTH // 2 - 100, header_y))
+    screen.blit(player_header, (WIDTH // 2, header_y))
+    screen.blit(date_header, (WIDTH // 2 + 100, header_y))
+    screen.blit(style_header, (WIDTH // 2 + 200, header_y))
+    
+    # Separator line
+    pygame.draw.line(screen, GOLD, (WIDTH // 2 - 220, header_y + 25), (WIDTH // 2 + 220, header_y + 25), 2)
+    
     # Display high scores
-    y_pos = 200
+    y_pos = 210
     for i, score_data in enumerate(high_score_manager.high_scores):
         if i >= 10:  # Limit to top 10
             break
             
-        # Rank and score
-        rank_text = f"{i+1:2d}. {score_data['score']:4d}"
-        rank_surface = font.render(rank_text, True, GOLD if i == 0 else WHITE)
-        screen.blit(rank_surface, (WIDTH // 2 - 150, y_pos))
+        # Rank with medal emojis
+        if i == 0:
+            rank_text = "🥇 1st"
+            rank_color = GOLD
+        elif i == 1:
+            rank_text = "🥈 2nd"
+            rank_color = (192, 192, 192)  # Silver
+        elif i == 2:
+            rank_text = "🥉 3rd"
+            rank_color = (205, 127, 50)  # Bronze
+        else:
+            rank_text = f"{i+1:2d}th"
+            rank_color = WHITE
+            
+        rank_surface = font.render(rank_text, True, rank_color)
+        screen.blit(rank_surface, (WIDTH // 2 - 200, y_pos))
         
-        # Player name and date
-        info_text = f"{score_data['player']} - {score_data['date']}"
-        info_surface = font.render(info_text, True, WHITE)
-        screen.blit(info_surface, (WIDTH // 2 + 50, y_pos))
+        # Score
+        score_text = f"{score_data['score']:4d}"
+        score_surface = font.render(score_text, True, GOLD if i == 0 else WHITE)
+        screen.blit(score_surface, (WIDTH // 2 - 100, y_pos))
+        
+        # Player name
+        player_text = score_data['player'][:8]  # Limit length
+        player_surface = font.render(player_text, True, WHITE)
+        screen.blit(player_surface, (WIDTH // 2, y_pos))
+        
+        # Date (shortened)
+        date_text = score_data['date'][5:10]  # Just MM-DD
+        date_surface = font.render(date_text, True, WHITE)
+        screen.blit(date_surface, (WIDTH // 2 + 100, y_pos))
+        
+        # Laser style
+        style_text = f"Style {score_data['laser_style']}"
+        style_surface = font.render(style_text, True, WHITE)
+        screen.blit(style_surface, (WIDTH // 2 + 200, y_pos))
         
         y_pos += 30
     
     # Show message if no high scores
     if not high_score_manager.high_scores:
-        no_scores = font.render("No high scores yet!", True, WHITE)
+        no_scores = font.render("No high scores yet! Play a game to set the first record!", True, WHITE)
         screen.blit(no_scores, (WIDTH // 2 - no_scores.get_width() // 2, 250))
+        
+        # Encouragement text
+        encouragement = font.render("Try different laser styles (1-5) for variety!", True, GREEN)
+        screen.blit(encouragement, (WIDTH // 2 - encouragement.get_width() // 2, 280))
+    
+    # Current session info
+    if score > 0:
+        current_text = f"Current Session: {score} points"
+        current_surface = font.render(current_text, True, GREEN)
+        screen.blit(current_surface, (WIDTH // 2 - current_surface.get_width() // 2, HEIGHT - 60))
 
 def main():
     global score, lasers, targets, last_shot_time, game_over, LASER_STYLE, background_music_started, show_high_scores
@@ -410,6 +512,10 @@ def main():
                 # High score display
                 elif event.key == pygame.K_h:  # H key to toggle high score display
                     show_high_scores = not show_high_scores
+                # Clear high scores
+                elif event.key == pygame.K_ESCAPE and show_high_scores:  # ESC key to clear scores when viewing
+                    high_score_manager.clear_all_scores()
+                    show_high_scores = False
 
         keys = pygame.key.get_pressed()
 
